@@ -4,6 +4,8 @@ CROSS = 0
 
 QSTR_DEFS = qstrdefsport.h
 
+include pyscript/pyscript.mk
+
 include $(TOP)/py/py.mk
 #include $(TOP)/extmod/extmod.mk #JG Change
 
@@ -25,12 +27,14 @@ SRC_SHARED = $(addprefix shared/,\
 	readline/readline.c \
 	)
 
-SRC_C = \
+SRC_C += \
 	main.c \
 	mphalport.c \
 	supervisor/stub/safe_mode.c \
 	supervisor/shared/translate/translate.c \
 	supervisor/shared/stack.c #JG Changes these two lines ^^
+
+SRC_JS ?= wrapper.js
 
 SRC_QSTR += $(SRC_C) $(SRC_SHARED)
 
@@ -38,19 +42,28 @@ OBJ += $(PY_O)
 OBJ += $(addprefix $(BUILD)/, $(SRC_SHARED:.c=.o))
 OBJ += $(addprefix $(BUILD)/, $(SRC_C:.c=.o)) 
 
-JSFLAGS += -s ASYNCIFY
-JSFLAGS += -s EXPORTED_FUNCTIONS="['_mp_js_init', '_mp_js_init_repl', '_mp_js_do_str', '_mp_js_process_char', '_mp_hal_get_interrupt_char', '_mp_sched_keyboard_interrupt']"
-JSFLAGS += -s EXPORTED_RUNTIME_METHODS="['ccall', 'cwrap', 'FS']"
+#JSFLAGS += -s ASYNCIFY
+JSFLAGS += -s EXPORTED_FUNCTIONS="\
+	_mp_js_init,\
+	_mp_js_init_repl,\
+	_mp_js_do_str,\
+	_mp_js_process_char,\
+	_mp_hal_get_interrupt_char,\
+	_mp_sched_keyboard_interrupt$(EXPORTED_FUNCTIONS_EXTRA)"
+JSFLAGS += -s EXPORTED_RUNTIME_METHODS="\
+	ccall,\
+	cwrap,\
+	FS$(EXPORTED_RUNTIME_METHODS_EXTRA)"
 JSFLAGS += -s --memory-init-file 0
 JSFLAGS += --js-library library.js
+JSFLAGS += -s SUPPORT_LONGJMP=emscripten
 
-all: $(BUILD)/micropython.js
+all: $(BUILD)/micropython.mjs
 
-$(BUILD)/micropython.js: $(OBJ) library.js wrapper.js
-	$(ECHO) "LINK $(BUILD)/firmware.js"
-	$(ECHO) "OBJ $(OBJ)"
-	$(Q)emcc $(LDFLAGS) -o $(BUILD)/firmware.js $(OBJ) $(JSFLAGS)
-	cat wrapper.js $(BUILD)/firmware.js > $@
+$(BUILD)/micropython.mjs: $(OBJ) library.js $(SRC_JS)
+	$(ECHO) "LINK $@"
+	$(Q)emcc -v $(LDFLAGS) -o $@ $(OBJ) $(JSFLAGS)
+	$(Q)cat $(SRC_JS) >> $@
 
 min: $(BUILD)/micropython.js
 	uglifyjs $< -c -o $(BUILD)/micropython.min.js

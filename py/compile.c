@@ -198,6 +198,10 @@ typedef struct _compiler_t {
     mp_emit_common_t emit_common;
 } compiler_t;
 
+#if MICROPY_COMPILE_ALLOW_TOP_LEVEL_AWAIT
+bool mp_compile_allow_top_level_await = false;
+#endif
+
 /******************************************************************************/
 // mp_emit_common_t helper functions
 // These are defined here so they can be inlined, to reduce code size.
@@ -2729,8 +2733,13 @@ STATIC void compile_classdef(compiler_t *comp, mp_parse_node_struct_t *pns) {
 
 STATIC void compile_yield_expr(compiler_t *comp, mp_parse_node_struct_t *pns) {
     if (comp->scope_cur->kind != SCOPE_FUNCTION && comp->scope_cur->kind != SCOPE_LAMBDA) {
+        #if MICROPY_COMPILE_ALLOW_TOP_LEVEL_AWAIT
+        if (!mp_compile_allow_top_level_await)
+        #endif
+        {
         compile_syntax_error(comp, (mp_parse_node_t)pns, MP_ERROR_TEXT("'yield' outside function"));
         return;
+        }
     }
     if (MP_PARSE_NODE_IS_NULL(pns->nodes[0])) {
         EMIT_ARG(load_const_tok, MP_TOKEN_KW_NONE);

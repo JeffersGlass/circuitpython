@@ -28,7 +28,7 @@
 
 // Is this a CircuitPython build?
 #ifndef CIRCUITPY
-#define CIRCUITPY 0
+#define CIRCUITPY 1
 #endif
 
 // In CircuitPython, version info is in genhdr/mpversion.h.
